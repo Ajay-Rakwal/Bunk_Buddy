@@ -377,7 +377,93 @@ function updateAttEditor() {
   }
 }
 
+function parseTimetableJson(str) {
+  const tt = { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [] };
+  if (!str || !str.trim()) return tt;
+  try {
+    let cleanStr = str.trim();
+    if (cleanStr.startsWith('```')) {
+      cleanStr = cleanStr.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+    }
+    const parsed = JSON.parse(cleanStr);
+    const dayMap = {
+      mon: 'monday', monday: 'monday',
+      tue: 'tuesday', tues: 'tuesday', tuesday: 'tuesday',
+      wed: 'wednesday', wednesday: 'wednesday',
+      thu: 'thursday', thur: 'thursday', thurs: 'thursday', thursday: 'thursday',
+      fri: 'friday', friday: 'friday'
+    };
+
+    for (const [key, rawVal] of Object.entries(parsed)) {
+      const dayNorm = dayMap[key.toLowerCase().trim()];
+      if (!dayNorm) continue;
+
+      if (Array.isArray(rawVal)) {
+        const subjCount = {};
+        for (const item of rawVal) {
+          if (typeof item === 'string' && item.trim()) {
+            subjCount[item.trim()] = (subjCount[item.trim()] || 0) + 1;
+          } else if (typeof item === 'object' && item !== null) {
+            const subjName = item.subject || item.name || item.subject_name || item.sub || '';
+            const count = parseInt(item.classes || item.count || item.lectures || item.number || item.num || 1) || 1;
+            if (subjName) subjCount[subjName.trim()] = (subjCount[subjName.trim()] || 0) + count;
+          }
+        }
+        for (const [s, c] of Object.entries(subjCount)) {
+          tt[dayNorm].push({ subject: s, classes: c });
+        }
+      } else if (typeof rawVal === 'object' && rawVal !== null) {
+        for (const [subj, val] of Object.entries(rawVal)) {
+          const count = typeof val === 'number' ? val : (parseInt(val) || 1);
+          if (subj.trim() && count > 0) {
+            tt[dayNorm].push({ subject: subj.trim(), classes: count });
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to parse timetable JSON:', err);
+  }
+  return tt;
+}
+
+function parseAttendanceJson(str) {
+  const att = {};
+  if (!str || !str.trim()) return att;
+  try {
+    let cleanStr = str.trim();
+    if (cleanStr.startsWith('```')) {
+      cleanStr = cleanStr.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+    }
+    const parsed = JSON.parse(cleanStr);
+
+    for (const [subj, val] of Object.entries(parsed)) {
+      if (!subj || !subj.trim()) continue;
+      const sName = subj.trim();
+
+      if (Array.isArray(val) && val.length >= 2) {
+        att[sName] = { attended: parseInt(val[0]) || 0, total: parseInt(val[1]) || 0 };
+      } else if (typeof val === 'object' && val !== null) {
+        const attended = parseInt(val.attended ?? val.present ?? val.att ?? val.attended_lectures ?? 0) || 0;
+        const total = parseInt(val.total ?? val.delivered ?? val.lectures_delivered ?? val.held ?? val.tot ?? 0) || 0;
+        att[sName] = { attended, total };
+      }
+    }
+  } catch (err) {
+    console.error('Failed to parse attendance JSON:', err);
+  }
+  return att;
+}
+
 function formSubjects() {
+  const isJson = $('tt-mode-json')?.classList.contains('active');
+  if (isJson) {
+    const tt = parseTimetableJson($('timetable-json-input')?.value || '');
+    const s = new Set();
+    for (const day of DAYS) (tt[day] || []).forEach(e => s.add(e.subject));
+    return [...s];
+  }
+
   const s = new Set();
   document.querySelectorAll('.subject-row').forEach(r => {
     const v = r.querySelector('input[type="text"]').value.trim();
@@ -387,6 +473,11 @@ function formSubjects() {
 }
 
 function formTimetable() {
+  const isJson = $('tt-mode-json')?.classList.contains('active');
+  if (isJson) {
+    return parseTimetableJson($('timetable-json-input')?.value || '');
+  }
+
   const tt = {};
   document.querySelectorAll('.day-block').forEach(b => {
     const day = b.dataset.day;
@@ -401,6 +492,11 @@ function formTimetable() {
 }
 
 function formAttendance() {
+  const isJson = $('att-mode-json')?.classList.contains('active');
+  if (isJson) {
+    return parseAttendanceJson($('attendance-json-input')?.value || '');
+  }
+
   const att = {};
   document.querySelectorAll('.att-row').forEach(r => {
     const subj = r.querySelector('.att-attended').dataset.subject;
