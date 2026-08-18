@@ -109,9 +109,12 @@
           </div>
           <div class="p2p-connect-box">
             <span class="input-label">Connect to Remote Device:</span>
-            <div class="p2p-input-row">
-              <input type="text" id="p2p-remote-code" class="json-textarea p2p-input" placeholder="Paste Remote Device Code">
+            <div class="p2p-input-row" id="p2p-input-container">
+              <input type="text" id="p2p-remote-code" class="p2p-input" placeholder="Paste Remote Device Code (e.g. BUNK-XXXX)">
               <button type="button" id="p2p-connect-btn" class="btn-primary-3d btn-sm" onclick="connectP2P()">Link Devices →</button>
+            </div>
+            <div id="p2p-connected-container" class="hidden">
+              <button type="button" id="p2p-disconnect-btn" class="btn-danger-3d btn-sm" onclick="disconnectP2P()">🔴 Disconnect Device</button>
             </div>
           </div>
           <div id="p2p-status" class="p2p-status-badge hidden"></div>

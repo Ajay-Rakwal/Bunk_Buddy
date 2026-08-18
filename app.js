@@ -36,23 +36,42 @@ function classesOn(tt, day, subj) {
   return (tt[day]||[]).filter(e => e.subject === subj).reduce((a,e) => a + e.classes, 0);
 }
 
-// ponytail: using lightweight PeerJS P2P data channels for serverless 2-way sync -> fallback to cloud DB if offline background sync is ever needed
+// ponytail: using lightweight PeerJS P2P data channels with persistent device ID and auto-reconnect -> fallback to cloud DB if offline background sync is ever needed
 let peer = null;
 let p2pConn = null;
 let myP2PId = '';
+const PEER_ID_KEY = 'bunkbuddy_my_peer_id';
+const LINKED_PEER_KEY = 'bunkbuddy_linked_peer_id';
 
 function initP2P() {
   if (typeof Peer === 'undefined' || peer) return;
-  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-  myP2PId = `BUNK-${randomStr}`;
+
+  let savedId = localStorage.getItem(PEER_ID_KEY);
+  if (!savedId) {
+    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+    savedId = `BUNK-${randomStr}`;
+    localStorage.setItem(PEER_ID_KEY, savedId);
+  }
+  myP2PId = savedId;
+
+  const codeEl = $('p2p-my-code');
+  if (codeEl) codeEl.textContent = myP2PId;
 
   try {
     peer = new Peer(myP2PId);
 
     peer.on('open', id => {
       myP2PId = id;
-      const codeEl = $('p2p-my-code');
+      localStorage.setItem(PEER_ID_KEY, id);
       if (codeEl) codeEl.textContent = id;
+
+      // Auto-reconnect to saved linked peer if present
+      const savedLinked = localStorage.getItem(LINKED_PEER_KEY);
+      if (savedLinked && !p2pConn) {
+        updateP2PStatus(false, `Reconnecting to ${savedLinked}...`);
+        const conn = peer.connect(savedLinked);
+        setupP2PConnection(conn);
+      }
     });
 
     peer.on('connection', conn => {
@@ -72,7 +91,8 @@ function setupP2PConnection(conn) {
   p2pConn = conn;
 
   p2pConn.on('open', () => {
-    updateP2PStatus(true, `🟢 Linked with ${p2pConn.peer}`);
+    localStorage.setItem(LINKED_PEER_KEY, p2pConn.peer);
+    updateP2PUI(true, `🟢 Linked with ${p2pConn.peer}`);
     if (data) {
       p2pConn.send({ type: 'FULL_SYNC', data });
     }
@@ -82,8 +102,12 @@ function setupP2PConnection(conn) {
     if (payload && payload.type === 'FULL_SYNC' && payload.data) {
       data = payload.data;
       localStorage.setItem(KEY, JSON.stringify(data));
-      if ($('dashboard-view')?.classList.contains('hidden') === false) {
-        pendingAbsent = [...data.absentDates];
+      pendingAbsent = [...(data.absentDates || [])];
+
+      // Auto-reroute to dashboard if on setup screen!
+      if ($('setup-view')?.classList.contains('hidden') === false) {
+        showDashboard();
+      } else {
         renderAll();
       }
       toast('⚡ Synced updates from linked device!');
@@ -91,7 +115,7 @@ function setupP2PConnection(conn) {
   });
 
   p2pConn.on('close', () => {
-    updateP2PStatus(false, '❌ Peer disconnected');
+    updateP2PUI(false, '❌ Peer disconnected');
     p2pConn = null;
   });
 }
@@ -109,6 +133,16 @@ function connectP2P() {
   setupP2PConnection(conn);
 }
 
+function disconnectP2P() {
+  localStorage.removeItem(LINKED_PEER_KEY);
+  if (p2pConn) {
+    p2pConn.close();
+    p2pConn = null;
+  }
+  updateP2PUI(false, 'Disconnected from remote device');
+  toast('🔴 Device disconnected');
+}
+
 function copyP2PCode() {
   const text = $('p2p-my-code')?.textContent;
   if (!text || text === 'Generating...') return;
@@ -123,6 +157,21 @@ function updateP2PStatus(isConnected, message) {
   statusEl.classList.remove('hidden', 'connected', 'error');
   statusEl.classList.add(isConnected ? 'connected' : 'error');
   statusEl.textContent = message;
+}
+
+function updateP2PUI(isConnected, statusMessage) {
+  updateP2PStatus(isConnected, statusMessage);
+  const inputContainer = $('p2p-input-container');
+  const connectedContainer = $('p2p-connected-container');
+  if (inputContainer && connectedContainer) {
+    if (isConnected) {
+      inputContainer.classList.add('hidden');
+      connectedContainer.classList.remove('hidden');
+    } else {
+      inputContainer.classList.remove('hidden');
+      connectedContainer.classList.add('hidden');
+    }
+  }
 }
 
 function broadcastP2PUpdate() {
