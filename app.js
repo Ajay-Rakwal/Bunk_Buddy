@@ -218,11 +218,21 @@ function triggerConfettiBurst(cell) {
 }
 
 // ─── SETUP ───
+let isReconfigure = false;
+
 function renderSetup() {
+  isReconfigure = !!data;
   $('setup-view').classList.remove('hidden');
   $('dashboard-view').classList.add('hidden');
 
-  if (data) $('semester-end').value = data.semesterEnd;
+  // Show close button only when reconfiguring (not first setup)
+  const closeBtn = $('setup-close');
+  if (isReconfigure) closeBtn.classList.remove('hidden');
+  else closeBtn.classList.add('hidden');
+
+  if (data) {
+    $('semester-end').value = data.semesterEnd;
+  }
 
   const editor = $('timetable-editor');
   editor.innerHTML = '';
@@ -255,6 +265,14 @@ function renderSetup() {
 
   updateAttEditor();
   validate();
+}
+
+function closeSetup() {
+  if (!data) return; // can't close first setup
+  $('setup-view').classList.add('hidden');
+  $('dashboard-view').classList.remove('hidden');
+  pendingAbsent = [...data.absentDates];
+  renderAll();
 }
 
 function addSubjectRow(container, name, classes) {
@@ -408,7 +426,7 @@ function saveSetup() {
     lastVisitDate: ds(today()),
     timetable: formTimetable(),
     attendance: formAttendance(),
-    absentDates: data?.absentDates || [],
+    absentDates: [], // Clear absents when initializing engine / reconfiguring
     holidays: data?.holidays || []
   };
   save(data);
@@ -633,6 +651,12 @@ function renderProjections() {
   el.innerHTML = '';
 
   const entries = Object.entries(proj).sort((a, b) => a[1].percent - b[1].percent);
+
+  if (!entries.length) {
+    el.innerHTML = '<p class="no-suggestions">No subjects configured yet.</p>';
+    return;
+  }
+
   for (const [subj, info] of entries) {
     const status = info.percent < 75 ? 'danger' : info.percent < 76 ? 'risky' : 'safe';
     const item = document.createElement('div');
@@ -787,6 +811,7 @@ function toast(msg) {
 $('save-setup').addEventListener('click', saveSetup);
 $('semester-end').addEventListener('change', validate);
 $('edit-setup').addEventListener('click', renderSetup);
+$('setup-close').addEventListener('click', closeSetup);
 $('prev-month').addEventListener('click', () => {
   viewMonth--;
   if (viewMonth < 0) { viewMonth = 11; viewYear--; }
