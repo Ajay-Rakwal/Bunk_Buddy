@@ -665,15 +665,19 @@ function validate() {
 }
 
 function saveSetup() {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+
   data = {
     semesterEnd: $('semester-end').value,
-    lastVisitDate: ds(today()),
+    lastVisitDate: ds(yesterday), // Start at yesterday so today's 5 PM check can run
     timetable: formTimetable(),
     attendance: formAttendance(),
     absentDates: [], // Clear absents when initializing engine / reconfiguring
     holidays: data?.holidays || []
   };
   save(data);
+  checkAutoPresent();
   showDashboard();
 }
 
@@ -682,6 +686,7 @@ function showDashboard() {
   $('setup-view').classList.add('hidden');
   $('dashboard-view').classList.remove('hidden');
   initP2P();
+  checkAutoPresent();
   pendingAbsent = [...data.absentDates];
   holidayMode = false;
   updateHolidayToggle();
@@ -1003,9 +1008,13 @@ function hideTooltip() { $('tooltip').classList.add('hidden'); }
 // ─── AUTO-PRESENT ───
 // A day counts as "done" after 5 PM. Bakes elapsed days into data.attendance.
 function checkAutoPresent() {
+  if (!data || !data.lastVisitDate) return;
+
   const now = new Date();
   const cutoff = new Date(now); // latest day we can mark
-  if (now.getHours() < 17) cutoff.setDate(cutoff.getDate() - 1); // before 5 PM → yesterday is last done day
+  if (now.getHours() < 17) {
+    cutoff.setDate(cutoff.getDate() - 1); // before 5 PM → yesterday is last done day
+  }
   cutoff.setHours(0, 0, 0, 0);
 
   const last = pd(data.lastVisitDate);
@@ -1041,7 +1050,7 @@ function checkAutoPresent() {
 
   data.lastVisitDate = ds(cutoff);
   save(data);
-  if (count > 0) toast(`Welcome back! ${count} day${count > 1 ? 's' : ''} auto-marked as present.`);
+  if (count > 0) toast(`⚡ ${count} day${count > 1 ? 's' : ''} auto-marked present (after 5 PM)!`);
 }
 
 // ─── TOAST ───
