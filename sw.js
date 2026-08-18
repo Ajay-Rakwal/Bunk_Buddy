@@ -1,4 +1,4 @@
-const CACHE = 'bunkbuddy-v8';
+const CACHE = 'bunkbuddy-v9';
 const ASSETS = [
   './',
   './index.html',
