@@ -1,4 +1,4 @@
-const CACHE = 'bunkplanner-v3';
+const CACHE = 'bunkplanner-v4';
 const ASSETS = [
   './',
   './index.html',

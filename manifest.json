@@ -4,8 +4,8 @@
   "description": "Precision 75% attendance optimizer. Skip smart, stay safe.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#060913",
-  "theme_color": "#060913",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
   "orientation": "any",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
