@@ -1,6 +1,6 @@
 {
-  "name": "Bunk Planner 3D",
-  "short_name": "BunkPlanner",
+  "name": "Bunk Buddy",
+  "short_name": "BunkBuddy",
   "description": "Precision 75% attendance optimizer. Skip smart, stay safe.",
   "start_url": "./index.html",
   "display": "standalone",

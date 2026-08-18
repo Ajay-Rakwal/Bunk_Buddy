@@ -1,5 +1,5 @@
 // ─── CONSTANTS ───
-const KEY = 'bunkplanner';
+const KEY = 'bunkbuddy';
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -37,7 +37,7 @@ function classesOn(tt, day, subj) {
 }
 
 // ─── DATA LAYER ───
-function load() { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : null; }
+function load() { const r = localStorage.getItem(KEY) || localStorage.getItem('bunkplanner'); return r ? JSON.parse(r) : null; }
 function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
 // ─── CALCULATION ENGINE ───
