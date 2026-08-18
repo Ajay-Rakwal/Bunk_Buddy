@@ -36,9 +36,107 @@ function classesOn(tt, day, subj) {
   return (tt[day]||[]).filter(e => e.subject === subj).reduce((a,e) => a + e.classes, 0);
 }
 
+// ponytail: using lightweight PeerJS P2P data channels for serverless 2-way sync -> fallback to cloud DB if offline background sync is ever needed
+let peer = null;
+let p2pConn = null;
+let myP2PId = '';
+
+function initP2P() {
+  if (typeof Peer === 'undefined' || peer) return;
+  const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+  myP2PId = `BUNK-${randomStr}`;
+
+  try {
+    peer = new Peer(myP2PId);
+
+    peer.on('open', id => {
+      myP2PId = id;
+      const codeEl = $('p2p-my-code');
+      if (codeEl) codeEl.textContent = id;
+    });
+
+    peer.on('connection', conn => {
+      setupP2PConnection(conn);
+    });
+
+    peer.on('error', err => {
+      console.warn('P2P Peer error:', err);
+      updateP2PStatus(false, `P2P connection error: ${err.type || 'failed'}`);
+    });
+  } catch (err) {
+    console.warn('PeerJS init failed:', err);
+  }
+}
+
+function setupP2PConnection(conn) {
+  p2pConn = conn;
+
+  p2pConn.on('open', () => {
+    updateP2PStatus(true, `🟢 Linked with ${p2pConn.peer}`);
+    if (data) {
+      p2pConn.send({ type: 'FULL_SYNC', data });
+    }
+  });
+
+  p2pConn.on('data', payload => {
+    if (payload && payload.type === 'FULL_SYNC' && payload.data) {
+      data = payload.data;
+      localStorage.setItem(KEY, JSON.stringify(data));
+      if ($('dashboard-view')?.classList.contains('hidden') === false) {
+        pendingAbsent = [...data.absentDates];
+        renderAll();
+      }
+      toast('⚡ Synced updates from linked device!');
+    }
+  });
+
+  p2pConn.on('close', () => {
+    updateP2PStatus(false, '❌ Peer disconnected');
+    p2pConn = null;
+  });
+}
+
+function connectP2P() {
+  const remoteId = $('p2p-remote-code')?.value.trim();
+  if (!remoteId) {
+    toast('Please enter a valid remote device code');
+    return;
+  }
+  if (!peer) initP2P();
+
+  updateP2PStatus(false, 'Connecting to remote device...');
+  const conn = peer.connect(remoteId);
+  setupP2PConnection(conn);
+}
+
+function copyP2PCode() {
+  const text = $('p2p-my-code')?.textContent;
+  if (!text || text === 'Generating...') return;
+  navigator.clipboard.writeText(text).then(() => {
+    toast('📋 Device code copied!');
+  });
+}
+
+function updateP2PStatus(isConnected, message) {
+  const statusEl = $('p2p-status');
+  if (!statusEl) return;
+  statusEl.classList.remove('hidden', 'connected', 'error');
+  statusEl.classList.add(isConnected ? 'connected' : 'error');
+  statusEl.textContent = message;
+}
+
+function broadcastP2PUpdate() {
+  if (p2pConn && p2pConn.open && data) {
+    p2pConn.send({ type: 'FULL_SYNC', data });
+  }
+}
+
 // ─── DATA LAYER ───
 function load() { const r = localStorage.getItem(KEY) || localStorage.getItem('bunkplanner'); return r ? JSON.parse(r) : null; }
-function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+function save(d) {
+  localStorage.setItem(KEY, JSON.stringify(d));
+  broadcastP2PUpdate();
+}
 
 // ─── CALCULATION ENGINE ───
 // Dynamic window: today → windowEnd or max(absentDates)
@@ -224,6 +322,7 @@ function renderSetup() {
   isReconfigure = !!data;
   $('setup-view').classList.remove('hidden');
   $('dashboard-view').classList.add('hidden');
+  initP2P();
 
   // Show close button only when reconfiguring (not first setup)
   const closeBtn = $('setup-close');
@@ -533,6 +632,7 @@ function saveSetup() {
 function showDashboard() {
   $('setup-view').classList.add('hidden');
   $('dashboard-view').classList.remove('hidden');
+  initP2P();
   pendingAbsent = [...data.absentDates];
   holidayMode = false;
   updateHolidayToggle();

@@ -13,6 +13,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
   <div class="bg-glow bg-glow-1"></div>
@@ -90,6 +91,30 @@
             <label class="input-label" for="attendance-json-input">Attendance JSON Text</label>
             <textarea id="attendance-json-input" class="json-textarea" placeholder="Paste Attendance JSON text here..."></textarea>
           </div>
+        </div>
+      </div>
+
+      <div class="setup-card glass-panel" id="sync-card">
+        <div class="setup-card-header">
+          <h2>🔗 Live Device Sync (P2P)</h2>
+        </div>
+        <p class="hint">Connect 2 devices directly. Changes on either device reflect on both.</p>
+        <div class="p2p-sync-group">
+          <div class="p2p-code-display">
+            <span class="input-label">Your Device Code:</span>
+            <div class="p2p-code-box">
+              <span id="p2p-my-code" class="p2p-code-text">Generating...</span>
+              <button type="button" class="btn-ghost-3d btn-sm" onclick="copyP2PCode()">📋 Copy</button>
+            </div>
+          </div>
+          <div class="p2p-connect-box">
+            <span class="input-label">Connect to Remote Device:</span>
+            <div class="p2p-input-row">
+              <input type="text" id="p2p-remote-code" class="json-textarea p2p-input" placeholder="Paste Remote Device Code">
+              <button type="button" id="p2p-connect-btn" class="btn-primary-3d btn-sm" onclick="connectP2P()">Link Devices →</button>
+            </div>
+          </div>
+          <div id="p2p-status" class="p2p-status-badge hidden"></div>
         </div>
       </div>
 

@@ -811,3 +811,56 @@ body {
   border-color: var(--accent);
   box-shadow: 0 0 12px var(--accent-glow);
 }
+
+/* ── P2P DEVICE SYNC STYLES ── */
+.p2p-sync-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+.p2p-code-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(10, 14, 23, 0.5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.p2p-code-text {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 13.5px;
+  letter-spacing: 0.5px;
+}
+.p2p-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.p2p-input {
+  min-height: 40px !important;
+  height: 40px;
+  padding: 8px 12px;
+  flex: 1;
+}
+.p2p-status-badge {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: center;
+}
+.p2p-status-badge.connected {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.p2p-status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
