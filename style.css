@@ -1,26 +1,26 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #141d2b;
-  --surface: rgba(26, 37, 56, 0.85);
-  --card: rgba(30, 43, 66, 0.75);
-  --card-hover: rgba(40, 56, 84, 0.9);
-  --border: rgba(255, 255, 255, 0.14);
-  --border-glow: rgba(56, 189, 248, 0.4);
+  --bg: #120a14;
+  --surface: rgba(32, 16, 28, 0.85);
+  --card: rgba(38, 18, 32, 0.75);
+  --card-hover: rgba(54, 24, 44, 0.9);
+  --border: rgba(249, 115, 22, 0.2);
+  --border-glow: rgba(249, 115, 22, 0.45);
   --text: #f8fafc;
-  --text-dim: #94a3b8;
+  --text-dim: #a894a0;
   --green: #10b981;
   --green-glow: rgba(16, 185, 129, 0.35);
   --yellow: #f59e0b;
   --yellow-glow: rgba(245, 158, 11, 0.35);
   --red: #ef4444;
   --red-glow: rgba(239, 68, 68, 0.35);
-  --accent: #38bdf8;
-  --accent-glow: rgba(56, 189, 248, 0.45);
-  --purple: #c084fc;
-  --purple-glow: rgba(192, 132, 252, 0.4);
-  --orange: #fb923c;
-  --orange-glow: rgba(251, 146, 60, 0.4);
+  --accent: #f97316;
+  --accent-glow: rgba(249, 115, 22, 0.5);
+  --purple: #ec4899;
+  --purple-glow: rgba(236, 72, 153, 0.4);
+  --orange: #f59e0b;
+  --orange-glow: rgba(245, 158, 11, 0.4);
   --radius: 12px;
   --radius-lg: 16px;
   --font-main: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
@@ -47,22 +47,22 @@ body {
   filter: blur(120px);
   pointer-events: none;
   z-index: 0;
-  opacity: 0.35;
+  opacity: 0.4;
 }
 .bg-glow-1 {
   top: -10%;
   left: -10%;
-  width: 50vw;
-  height: 50vw;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.2), transparent 70%);
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.22), transparent 70%);
   animation: glowDrift1 12s ease-in-out infinite;
 }
 .bg-glow-2 {
   bottom: -15%;
   right: -10%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.16), transparent 70%);
+  width: 65vw;
+  height: 65vw;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.25), transparent 70%);
   animation: glowDrift2 15s ease-in-out infinite;
 }
 @keyframes glowDrift1 {
@@ -89,41 +89,41 @@ body {
 
 /* ── GLASS PANELS 3D ── */
 .glass-panel-3d {
-  background: linear-gradient(145deg, rgba(30, 43, 66, 0.8), rgba(20, 30, 46, 0.7));
+  background: linear-gradient(145deg, rgba(38, 18, 32, 0.85), rgba(18, 10, 20, 0.75));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 
-    0 16px 32px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 16px 36px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(249, 115, 22, 0.08) inset,
     inset 0 1px 1px rgba(255, 255, 255, 0.12),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.15);
+    inset 0 -1px 1px rgba(0, 0, 0, 0.2);
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-panel-3d:hover {
-  border-color: rgba(56, 189, 248, 0.35);
+  border-color: rgba(249, 115, 22, 0.45);
   transform: translateY(-2px);
   box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-    inset 0 1px 1px rgba(255, 255, 255, 0.18);
+    0 22px 45px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(249, 115, 22, 0.15) inset,
+    inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
 .glass-panel {
-  background: linear-gradient(145deg, rgba(30, 43, 66, 0.85), rgba(20, 30, 46, 0.75));
+  background: linear-gradient(145deg, rgba(38, 18, 32, 0.9), rgba(18, 10, 20, 0.8));
   backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 
-    0 10px 25px rgba(0,0,0,0.25),
+    0 10px 25px rgba(0,0,0,0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ── BUTTONS 3D ── */
 .btn-primary-3d {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #f97316 0%, #d97706 100%);
   color: #fff;
   border: none;
   padding: 12px 24px;
@@ -133,15 +133,15 @@ body {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 
-    0 8px 20px rgba(2, 132, 199, 0.4),
-    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    0 8px 22px rgba(249, 115, 22, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
 }
 .btn-primary-3d:hover {
   transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 12px 25px rgba(2, 132, 199, 0.6);
+  box-shadow: 0 12px 25px rgba(249, 115, 22, 0.65);
 }
 .btn-primary-3d:active { transform: translateY(1px) scale(0.98); }
 .btn-primary-3d:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
