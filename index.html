@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Bunk Planner 3D – Precision 75% Attendance Engine</title>
+  <meta name="description" content="Futuristic 3D attendance management engine. Skip whole days while maintaining exact 75% attendance.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#060913">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-grid-pattern"></div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ── SETUP VIEW ── -->
+  <section id="setup-view" class="view">
+    <div class="setup-container">
+      <div class="brand-badge">SYSTEM INITIALIZATION</div>
+      <h1>📐 BUNK PLANNER <span class="badge-v2">3D CORE</span></h1>
+      <p class="subtitle">Precision attendance optimizer. Set up once, skip smart forever.</p>
+
+      <div class="setup-card glass-panel">
+        <h2>📅 Semester End Date</h2>
+        <input type="date" id="semester-end">
+      </div>
+
+      <div class="setup-card glass-panel">
+        <div class="setup-card-header">
+          <h2>📝 Weekly Timetable</h2>
+          <div class="setup-mode-tabs">
+            <button type="button" class="mode-tab active" id="tt-mode-manual" onclick="setTimetableMode('manual')">✍️ Manual</button>
+            <button type="button" class="mode-tab" id="tt-mode-json" onclick="setTimetableMode('json')">📄 JSON Text</button>
+          </div>
+        </div>
+
+        <div id="timetable-manual-container">
+          <div id="timetable-editor"></div>
+        </div>
+
+        <div id="timetable-json-container" class="hidden">
+          <div class="prompt-box glass-panel-3d">
+            <div class="prompt-header">
+              <span class="prompt-badge">🤖 ChatGPT Prompt #1</span>
+              <button type="button" class="copy-btn btn-ghost-3d btn-sm" onclick="copyPrompt('prompt-1')">📋 Copy Prompt</button>
+            </div>
+            <p class="prompt-text" id="prompt-1">convert this photo of my time table to json format, having only the subject name and number of lectures per day. </p>
+          </div>
+          <div class="json-input-group">
+            <label class="input-label" for="timetable-json-input">Timetable JSON Text</label>
+            <textarea id="timetable-json-input" class="json-textarea" placeholder="Paste Timetable JSON text here..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="setup-card glass-panel" id="attendance-card" style="display:none">
+        <div class="setup-card-header">
+          <div>
+            <h2>📊 Current Attendance</h2>
+            <p class="hint">Enter verified attendance count as of today</p>
+          </div>
+          <div class="setup-mode-tabs">
+            <button type="button" class="mode-tab active" id="att-mode-manual" onclick="setAttendanceMode('manual')">✍️ Manual</button>
+            <button type="button" class="mode-tab" id="att-mode-json" onclick="setAttendanceMode('json')">📄 JSON Text</button>
+          </div>
+        </div>
+
+        <div id="attendance-manual-container">
+          <div id="attendance-editor"></div>
+        </div>
+
+        <div id="attendance-json-container" class="hidden">
+          <div class="prompt-box glass-panel-3d">
+            <div class="prompt-header">
+              <span class="prompt-badge">🤖 ChatGPT Prompt #2</span>
+              <button type="button" class="copy-btn btn-ghost-3d btn-sm" onclick="copyPrompt('prompt-2')">📋 Copy Prompt</button>
+            </div>
+            <p class="prompt-text" id="prompt-2">convert this photo of my attendance into json, justi showing total lectures attended and lectures delivered.</p>
+          </div>
+          <div class="json-input-group">
+            <label class="input-label" for="attendance-json-input">Attendance JSON Text</label>
+            <textarea id="attendance-json-input" class="json-textarea" placeholder="Paste Attendance JSON text here..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <button id="save-setup" class="btn-primary-3d" disabled>
+        <span>Initialize Engine →</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ── DASHBOARD VIEW ── -->
+  <section id="dashboard-view" class="view hidden">
+    <header class="dash-header glass-header">
+      <div class="header-brand">
+        <div class="hud-dot"></div>
+        <h1>BUNK PLANNER <span class="hud-tag">v3.0 3D</span></h1>
+      </div>
+      <button id="edit-setup" class="btn-ghost-3d">⚙ Re-configure</button>
+    </header>
+
+    <div class="dash-grid">
+      <div class="calendar-panel glass-panel-3d">
+        <div class="cal-nav">
+          <div class="month-selector">
+            <button id="prev-month" class="btn-icon-3d">‹</button>
+            <span id="month-label"></span>
+            <button id="next-month" class="btn-icon-3d">›</button>
+          </div>
+          <button id="holiday-toggle" class="btn-holiday-3d">
+            <span class="holiday-sparkle">🎉</span> Holiday Mode
+          </button>
+        </div>
+        
+        <div class="cal-header">
+          <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span><span>SUN</span>
+        </div>
+        
+        <div id="cal-body" class="cal-body"></div>
+        
+        <div class="cal-legend">
+          <span class="legend-item"><span class="dot green"></span>Attending Class</span>
+          <span class="legend-item"><span class="dot purple"></span>Bunk Day</span>
+          <span class="legend-item"><span class="dot orange"></span>Holiday</span>
+          <span class="legend-item"><span class="dot yellow"></span>Risky Bunk (75-76%)</span>
+          <span class="legend-item"><span class="dot red"></span>Danger Bunk (<75%)</span>
+        </div>
+
+        <!-- Confirm bar: shown when there are uncommitted changes -->
+        <div id="confirm-bar" class="confirm-bar glass-alert hidden">
+          <div class="confirm-info-group">
+            <div class="pulse-warning"></div>
+            <span id="confirm-info"></span>
+          </div>
+          <div class="confirm-bar-actions">
+            <button id="confirm-btn" class="btn-danger-3d">Confirm Plan</button>
+            <button id="reset-btn" class="btn-ghost-3d btn-sm">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <div class="panel glass-panel-3d">
+          <div class="panel-header">
+            <h2>📊 Projected Attendance</h2>
+            <span class="target-pill">Target: 75.0%</span>
+          </div>
+          <div id="proj-bars"></div>
+        </div>
+
+        <div class="panel glass-panel-3d">
+          <div class="panel-header">
+            <h2>🏖️ Long Weekends</h2>
+            <span class="live-tag">NEXT 10 WKS</span>
+          </div>
+          <div id="suggestions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip glass-tooltip hidden"></div>
+  </section>
+
+  <script src="app.js"></script>
+  <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
+</body>
+</html>
