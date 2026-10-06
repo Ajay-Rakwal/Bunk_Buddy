@@ -508,6 +508,26 @@ body {
   box-shadow: 0 10px 25px var(--purple-glow), inset 0 0 15px rgba(192, 132, 252, 0.3);
 }
 
+/* Partial-day absence: some lectures skipped */
+.cal-cell.partial-absent {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.06));
+  border-color: rgba(251, 191, 36, 0.5);
+  color: #fbbf24;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+.cal-cell.partial-absent::after {
+  content: '•';
+  position: absolute;
+  bottom: 3px;
+  right: 5px;
+  font-size: 10px;
+  color: #fbbf24;
+}
+.cal-cell.partial-absent:hover {
+  box-shadow: 0 10px 25px rgba(251, 191, 36, 0.4), inset 0 0 12px rgba(251, 191, 36, 0.2);
+}
+
 /* HOLIDAY CELLS WITH ANIMATED CONFETTI CANVAS */
 .cal-cell.holiday {
   background: linear-gradient(135deg, rgba(251, 146, 60, 0.22), rgba(251, 146, 60, 0.08));
@@ -862,70 +882,6 @@ body {
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
-/* ── P2P DEVICE SYNC STYLES ── */
-.p2p-sync-group {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 10px;
-}
-.p2p-code-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(10, 14, 23, 0.5);
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-.p2p-code-text {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--accent);
-  font-size: 13.5px;
-  letter-spacing: 0.5px;
-}
-.p2p-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.p2p-input {
-  height: 42px;
-  background: rgba(10, 14, 23, 0.6);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 8px 12px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  transition: all 0.2s;
-  flex: 1;
-  width: 100%;
-}
-.p2p-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-.p2p-status-badge {
-  font-size: 12px;
-  font-family: var(--font-mono);
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-weight: 600;
-  text-align: center;
-}
-.p2p-status-badge.connected {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-.p2p-status-badge.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--red);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
 
 #save-setup {
   width: 100%;
@@ -938,4 +894,165 @@ body {
   align-items: center;
   position: relative;
   z-index: 10;
+}
+
+/* ── ABSENCE / HOLIDAY MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 9, 19, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-box {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalSlideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.modal-date-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.modal-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+.modal-close-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-dim);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.modal-close-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: var(--red);
+  transform: rotate(90deg);
+}
+
+.modal-holiday-full-btn {
+  width: 100%;
+  justify-content: center;
+  margin-left: 0;
+  padding: 10px 16px;
+  font-size: 13.5px;
+}
+
+.modal-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+.modal-divider::before, .modal-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Lecture chips (checkbox labels) */
+.modal-lectures-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.lec-chip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.lec-chip input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--purple);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lec-chip:hover {
+  border-color: rgba(192, 132, 252, 0.4);
+  background: rgba(192, 132, 252, 0.08);
+}
+.lec-chip.checked {
+  background: linear-gradient(135deg, rgba(192, 132, 252, 0.18), rgba(192, 132, 252, 0.06));
+  border-color: rgba(192, 132, 252, 0.5);
+}
+.lec-name {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.lec-count {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.06);
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.modal-footer .btn-danger-3d {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.modal-footer .btn-primary-3d {
+  padding: 10px 22px;
+  font-size: 13px;
 }

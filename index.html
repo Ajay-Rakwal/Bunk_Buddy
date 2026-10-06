@@ -13,7 +13,7 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#060913">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
 </head>
 <body>
   <div class="bg-glow bg-glow-1"></div>
@@ -97,32 +97,7 @@
         </div>
       </div>
 
-      <div class="setup-card glass-panel" id="sync-card">
-        <div class="setup-card-header">
-          <h2>🔗 Live Device Sync (P2P)</h2>
-        </div>
-        <p class="hint">Connect 2 devices directly. Changes on either device reflect on both.</p>
-        <div class="p2p-sync-group">
-          <div class="p2p-code-display">
-            <span class="input-label">Your Device Code:</span>
-            <div class="p2p-code-box">
-              <span id="p2p-my-code" class="p2p-code-text">Generating...</span>
-              <button type="button" class="btn-ghost-3d btn-sm" onclick="copyP2PCode()">📋 Copy</button>
-            </div>
-          </div>
-          <div class="p2p-connect-box">
-            <span class="input-label">Connect to Remote Device:</span>
-            <div class="p2p-input-row" id="p2p-input-container">
-              <input type="text" id="p2p-remote-code" class="p2p-input" placeholder="Paste Remote Device Code (e.g. BUNK-XXXX)">
-              <button type="button" id="p2p-connect-btn" class="btn-primary-3d btn-sm" onclick="connectP2P()">Link Devices →</button>
-            </div>
-            <div id="p2p-connected-container" class="hidden">
-              <button type="button" id="p2p-disconnect-btn" class="btn-danger-3d btn-sm" onclick="disconnectP2P()">🔴 Disconnect Device</button>
-            </div>
-          </div>
-          <div id="p2p-status" class="p2p-status-badge hidden"></div>
-        </div>
-      </div>
+
 
       <button id="save-setup" class="btn-primary-3d" disabled>
         <span>Initialize Engine →</span>
@@ -161,7 +136,8 @@
         
         <div class="cal-legend">
           <span class="legend-item"><span class="dot green"></span>Attending Class</span>
-          <span class="legend-item"><span class="dot purple"></span>Bunk Day</span>
+          <span class="legend-item"><span class="dot purple"></span>Whole-Day Bunk</span>
+          <span class="legend-item"><span class="dot" style="background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,0.5)"></span>Partial Bunk</span>
           <span class="legend-item"><span class="dot orange"></span>Holiday</span>
           <span class="legend-item"><span class="dot yellow"></span>Risky Bunk (75-76%)</span>
           <span class="legend-item"><span class="dot red"></span>Danger Bunk (<75%)</span>
@@ -201,6 +177,34 @@
 
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip glass-tooltip hidden"></div>
+
+    <!-- Absence/Holiday Modal -->
+    <div id="absence-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-box glass-panel-3d">
+        <div class="modal-header">
+          <div>
+            <div class="modal-date-label" id="modal-date-label"></div>
+            <h2 id="modal-title" class="modal-title">Mark Absence / Holiday</h2>
+          </div>
+          <button class="modal-close-btn" id="modal-close" aria-label="Close">✕</button>
+        </div>
+
+        <div id="modal-holiday-section">
+          <button id="modal-holiday-btn" class="btn-holiday-3d modal-holiday-full-btn">
+            <span class="holiday-sparkle">🎉</span> Mark Whole Day as Holiday
+          </button>
+        </div>
+
+        <div class="modal-divider"><span>— or mark specific lectures absent —</span></div>
+
+        <div id="modal-lectures" class="modal-lectures-grid"></div>
+
+        <div class="modal-footer">
+          <button id="modal-whole-absent-btn" class="btn-danger-3d">☠️ Whole Day Absent</button>
+          <button id="modal-apply-btn" class="btn-primary-3d">Apply →</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <script src="app.js"></script>

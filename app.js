@@ -9,7 +9,8 @@ const CONFETTI_COLORS = ['#38bdf8', '#c084fc', '#fb923c', '#34d399', '#fbbf24', 
 let data = null;
 let viewMonth = new Date().getMonth();
 let viewYear = new Date().getFullYear();
-let pendingAbsent = [];   // uncommitted — affects calculations but not saved until confirmed
+let pendingAbsent = [];      // whole-day absences (uncommitted)
+let pendingLectures = {};    // { 'YYYY-MM-DD': Set<subject> } partial absences (uncommitted)
 let holidayMode = false;
 
 // ─── DOM ───
@@ -36,165 +37,20 @@ function classesOn(tt, day, subj) {
   return (tt[day]||[]).filter(e => e.subject === subj).reduce((a,e) => a + e.classes, 0);
 }
 
-// ponytail: using lightweight PeerJS P2P data channels with persistent device ID and auto-reconnect -> fallback to cloud DB if offline background sync is ever needed
-let peer = null;
-let p2pConn = null;
-let myP2PId = '';
-const PEER_ID_KEY = 'bunkbuddy_my_peer_id';
-const LINKED_PEER_KEY = 'bunkbuddy_linked_peer_id';
-
-function initP2P() {
-  if (typeof Peer === 'undefined' || peer) return;
-
-  let savedId = localStorage.getItem(PEER_ID_KEY);
-  if (!savedId) {
-    const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-    savedId = `BUNK-${randomStr}`;
-    localStorage.setItem(PEER_ID_KEY, savedId);
-  }
-  myP2PId = savedId;
-
-  const codeEl = $('p2p-my-code');
-  if (codeEl) codeEl.textContent = myP2PId;
-
-  try {
-    peer = new Peer(myP2PId);
-
-    peer.on('open', id => {
-      myP2PId = id;
-      localStorage.setItem(PEER_ID_KEY, id);
-      if (codeEl) codeEl.textContent = id;
-
-      // Auto-reconnect to saved linked peer if present
-      const savedLinked = localStorage.getItem(LINKED_PEER_KEY);
-      if (savedLinked && !p2pConn) {
-        updateP2PStatus(false, `Reconnecting to ${savedLinked}...`);
-        const conn = peer.connect(savedLinked);
-        setupP2PConnection(conn);
-      }
-    });
-
-    peer.on('connection', conn => {
-      setupP2PConnection(conn);
-    });
-
-    peer.on('error', err => {
-      console.warn('P2P Peer error:', err);
-      updateP2PStatus(false, `P2P connection error: ${err.type || 'failed'}`);
-    });
-  } catch (err) {
-    console.warn('PeerJS init failed:', err);
-  }
-}
-
-function setupP2PConnection(conn) {
-  p2pConn = conn;
-
-  p2pConn.on('open', () => {
-    localStorage.setItem(LINKED_PEER_KEY, p2pConn.peer);
-    updateP2PUI(true, `🟢 Linked with ${p2pConn.peer}`);
-    if (data) {
-      p2pConn.send({ type: 'FULL_SYNC', data });
-    }
-  });
-
-  p2pConn.on('data', payload => {
-    if (payload && payload.type === 'FULL_SYNC' && payload.data) {
-      data = payload.data;
-      localStorage.setItem(KEY, JSON.stringify(data));
-      pendingAbsent = [...(data.absentDates || [])];
-
-      // Auto-reroute to dashboard if on setup screen!
-      if ($('setup-view')?.classList.contains('hidden') === false) {
-        showDashboard();
-      } else {
-        renderAll();
-      }
-      toast('⚡ Synced updates from linked device!');
-    }
-  });
-
-  p2pConn.on('close', () => {
-    updateP2PUI(false, '❌ Peer disconnected');
-    p2pConn = null;
-  });
-}
-
-function connectP2P() {
-  const remoteId = $('p2p-remote-code')?.value.trim();
-  if (!remoteId) {
-    toast('Please enter a valid remote device code');
-    return;
-  }
-  if (!peer) initP2P();
-
-  updateP2PStatus(false, 'Connecting to remote device...');
-  const conn = peer.connect(remoteId);
-  setupP2PConnection(conn);
-}
-
-function disconnectP2P() {
-  localStorage.removeItem(LINKED_PEER_KEY);
-  if (p2pConn) {
-    p2pConn.close();
-    p2pConn = null;
-  }
-  updateP2PUI(false, 'Disconnected from remote device');
-  toast('🔴 Device disconnected');
-}
-
-function copyP2PCode() {
-  const text = $('p2p-my-code')?.textContent;
-  if (!text || text === 'Generating...') return;
-  navigator.clipboard.writeText(text).then(() => {
-    toast('📋 Device code copied!');
-  });
-}
-
-function updateP2PStatus(isConnected, message) {
-  const statusEl = $('p2p-status');
-  if (!statusEl) return;
-  statusEl.classList.remove('hidden', 'connected', 'error');
-  statusEl.classList.add(isConnected ? 'connected' : 'error');
-  statusEl.textContent = message;
-}
-
-function updateP2PUI(isConnected, statusMessage) {
-  updateP2PStatus(isConnected, statusMessage);
-  const inputContainer = $('p2p-input-container');
-  const connectedContainer = $('p2p-connected-container');
-  if (inputContainer && connectedContainer) {
-    if (isConnected) {
-      inputContainer.classList.add('hidden');
-      connectedContainer.classList.remove('hidden');
-    } else {
-      inputContainer.classList.remove('hidden');
-      connectedContainer.classList.add('hidden');
-    }
-  }
-}
-
-function broadcastP2PUpdate() {
-  if (p2pConn && p2pConn.open && data) {
-    p2pConn.send({ type: 'FULL_SYNC', data });
-  }
-}
-
 // ─── DATA LAYER ───
 function load() { const r = localStorage.getItem(KEY) || localStorage.getItem('bunkplanner'); return r ? JSON.parse(r) : null; }
-function save(d) {
-  localStorage.setItem(KEY, JSON.stringify(d));
-  broadcastP2PUpdate();
-}
+function save(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
 
 // ─── CALCULATION ENGINE ───
 // Dynamic window: today → windowEnd or max(absentDates)
-function project(absentDates, windowEnd) {
+// absentLecs: { 'YYYY-MM-DD': Set<subject> } for partial-day absences
+function project(absentDates, windowEnd, absentLecs) {
   const subjects = allSubjects(data.timetable);
   const holidays = new Set(data.holidays || []);
+  const lecAbsMap = absentLecs || {};
 
   // No projection — just entered attendance
-  if (absentDates.length === 0 && !windowEnd) {
+  if (absentDates.length === 0 && !windowEnd && Object.keys(lecAbsMap).length === 0) {
     const r = {};
     for (const subj of subjects) {
       const ex = data.attendance[subj] || { attended: 0, total: 0 };
@@ -206,6 +62,7 @@ function project(absentDates, windowEnd) {
   const t = today();
   let end = windowEnd ? pd(windowEnd) : new Date(t);
   for (const d of absentDates) { const dd = pd(d); if (dd > end) end = dd; }
+  for (const d of Object.keys(lecAbsMap)) { const dd = pd(d); if (dd > end) end = dd; }
 
   const absentSet = new Set(absentDates);
   const r = {};
@@ -220,7 +77,13 @@ function project(absentDates, windowEnd) {
         if (!holidays.has(s)) {
           const n = classesOn(data.timetable, dayName(c), subj);
           addTot += n;
-          if (!absentSet.has(s)) addAtt += n;
+          if (absentSet.has(s)) {
+            // whole day absent: 0 attended
+          } else if (lecAbsMap[s] && lecAbsMap[s].has(subj)) {
+            // specific lecture absent: 0 attended for this subject
+          } else {
+            addAtt += n;
+          }
         }
       }
       c.setDate(c.getDate() + 1);
@@ -234,13 +97,14 @@ function project(absentDates, windowEnd) {
   return r;
 }
 
-// Color for a calendar cell: what happens if user adds this date as absent?
+// Color for a calendar cell: what happens if user adds this date as whole-day absent?
 function dateColor(dateObj) {
   const s = ds(dateObj);
   if (pendingAbsent.includes(s)) return 'absent';
+  if (pendingLectures[s]) return 'partial'; // partial-day absence already set
 
   const tempAbsent = [...pendingAbsent, s];
-  const proj = project(tempAbsent);
+  const proj = project(tempAbsent, null, pendingLectures);
   let min = 100;
   for (const v of Object.values(proj)) min = Math.min(min, v.percent);
 
@@ -371,7 +235,6 @@ function renderSetup() {
   isReconfigure = !!data;
   $('setup-view').classList.remove('hidden');
   $('dashboard-view').classList.add('hidden');
-  initP2P();
 
   // Show close button only when reconfiguring (not first setup)
   const closeBtn = $('setup-close');
@@ -673,7 +536,8 @@ function saveSetup() {
     lastVisitDate: ds(yesterday), // Start at yesterday so today's 5 PM check can run
     timetable: formTimetable(),
     attendance: formAttendance(),
-    absentDates: [], // Clear absents when initializing engine / reconfiguring
+    absentDates: [],  // Clear absents when initializing engine / reconfiguring
+    absentLectures: {},
     holidays: data?.holidays || []
   };
   save(data);
@@ -685,9 +549,12 @@ function saveSetup() {
 function showDashboard() {
   $('setup-view').classList.add('hidden');
   $('dashboard-view').classList.remove('hidden');
-  initP2P();
   checkAutoPresent();
   pendingAbsent = [...data.absentDates];
+  pendingLectures = {};
+  for (const [d, subs] of Object.entries(data.absentLectures || {})) {
+    pendingLectures[d] = new Set(subs);
+  }
   holidayMode = false;
   updateHolidayToggle();
   renderAll();
@@ -716,6 +583,11 @@ function renderCalendar() {
   // Find max absent date in pendingAbsent
   let maxAbsentObj = null;
   for (const dStr of pendingAbsent) {
+    const dObj = pd(dStr);
+    if (!maxAbsentObj || dObj > maxAbsentObj) maxAbsentObj = dObj;
+  }
+  // Also consider partial lecture absences
+  for (const dStr of Object.keys(pendingLectures)) {
     const dObj = pd(dStr);
     if (!maxAbsentObj || dObj > maxAbsentObj) maxAbsentObj = dObj;
   }
@@ -767,6 +639,8 @@ function renderCalendar() {
       
       if (absent) {
         cell.classList.add('absent');
+      } else if (pendingLectures[dStr] && pendingLectures[dStr].size > 0) {
+        cell.classList.add('partial-absent');
       } else if (inActiveWindow) {
         // THIS DAY IS ATTENDED! LIT VIBRANT GREEN!
         cell.classList.add('attending-green');
@@ -819,7 +693,9 @@ function clearHoverPresentRange() {
   });
 }
 
-// ─── CLICK: instant toggle ───
+// ─── CLICK: open modal for lecture/holiday selection ───
+let _modalDate = null; // date being configured in modal
+
 function handleClick(dateObj, cellElement) {
   const dStr = ds(dateObj);
   hideTooltip();
@@ -837,36 +713,182 @@ function handleClick(dateObj, cellElement) {
     save(data);
     const aIdx = pendingAbsent.indexOf(dStr);
     if (aIdx >= 0) pendingAbsent.splice(aIdx, 1);
+    delete pendingLectures[dStr];
     renderAll();
     return;
   }
 
-  const idx = pendingAbsent.indexOf(dStr);
-  if (idx >= 0) pendingAbsent.splice(idx, 1);
-  else pendingAbsent.push(dStr);
+  openAbsenceModal(dateObj);
+}
+
+function openAbsenceModal(dateObj) {
+  _modalDate = dateObj;
+  const dStr = ds(dateObj);
+  const dayIdx = dateObj.getDay();
+  const dayKey = DAYS[dayIdx - 1];
+  const lectures = (data.timetable[dayKey] || []).filter(e => e.classes > 0);
+
+  $('modal-date-label').textContent = fmtFull(dStr);
+
+  // Build lecture checkboxes
+  const grid = $('modal-lectures');
+  grid.innerHTML = '';
+
+  const absentSubs = pendingLectures[dStr] || new Set();
+  const isWholeDayAbsent = pendingAbsent.includes(dStr);
+  const holiday = (data.holidays || []).includes(dStr);
+
+  if (lectures.length === 0) {
+    grid.innerHTML = '<p class="no-suggestions">No lectures scheduled on this day.</p>';
+  } else {
+    for (const lec of lectures) {
+      const checked = isWholeDayAbsent || absentSubs.has(lec.subject);
+      const chip = document.createElement('label');
+      chip.className = 'lec-chip' + (checked ? ' checked' : '');
+      chip.innerHTML = `
+        <input type="checkbox" value="${lec.subject}" ${checked ? 'checked' : ''}>
+        <span class="lec-name">${lec.subject}</span>
+        <span class="lec-count">${lec.classes}×</span>
+      `;
+      chip.querySelector('input').addEventListener('change', () => {
+        chip.classList.toggle('checked', chip.querySelector('input').checked);
+      });
+      grid.appendChild(chip);
+    }
+  }
+
+  // Update holiday btn state
+  const hBtn = $('modal-holiday-btn');
+  if (holiday) {
+    hBtn.classList.add('active');
+    hBtn.innerHTML = '<span class="holiday-sparkle">🎉</span> Remove Holiday';
+  } else {
+    hBtn.classList.remove('active');
+    hBtn.innerHTML = '<span class="holiday-sparkle">🎉</span> Mark Whole Day as Holiday';
+  }
+
+  // Update whole-day absent btn state
+  const wBtn = $('modal-whole-absent-btn');
+  wBtn.textContent = isWholeDayAbsent ? '✅ Undo Whole Day Absent' : '☠️ Whole Day Absent';
+
+  $('absence-modal').classList.remove('hidden');
+}
+
+function closeAbsenceModal() {
+  $('absence-modal').classList.add('hidden');
+  _modalDate = null;
+}
+
+function applyModalSelections() {
+  if (!_modalDate) return;
+  const dStr = ds(_modalDate);
+
+  const checked = [...$('modal-lectures').querySelectorAll('input[type="checkbox"]:checked')].map(i => i.value);
+  const dayIdx = _modalDate.getDay();
+  const dayKey = DAYS[dayIdx - 1];
+  const totalLecCount = (data.timetable[dayKey] || []).length;
+
+  // Remove from whole-day absent list
+  const wIdx = pendingAbsent.indexOf(dStr);
+  if (wIdx >= 0) pendingAbsent.splice(wIdx, 1);
+
+  if (checked.length === 0) {
+    // Nothing checked: attending all
+    delete pendingLectures[dStr];
+  } else if (checked.length === totalLecCount) {
+    // All checked: treat as whole-day absent
+    pendingAbsent.push(dStr);
+    delete pendingLectures[dStr];
+  } else {
+    // Partial: store per-lecture
+    pendingLectures[dStr] = new Set(checked);
+  }
+
+  closeAbsenceModal();
   renderAll();
+}
+
+function modalToggleHoliday() {
+  if (!_modalDate) return;
+  const dStr = ds(_modalDate);
+  const holidays = data.holidays || [];
+  const idx = holidays.indexOf(dStr);
+  if (idx >= 0) {
+    holidays.splice(idx, 1);
+    toast('Holiday removed');
+  } else {
+    holidays.push(dStr);
+    triggerConfettiBurst($(`[data-date="${dStr}"]`) || document.body);
+    toast('🎉 Holiday added!');
+  }
+  data.holidays = holidays;
+  // Remove from absents since it's now a holiday
+  const aIdx = pendingAbsent.indexOf(dStr);
+  if (aIdx >= 0) pendingAbsent.splice(aIdx, 1);
+  delete pendingLectures[dStr];
+  save(data);
+  closeAbsenceModal();
+  renderAll();
+}
+
+function modalToggleWholeAbsent() {
+  if (!_modalDate) return;
+  const dStr = ds(_modalDate);
+  const wIdx = pendingAbsent.indexOf(dStr);
+  if (wIdx >= 0) {
+    // Undo whole-day absent
+    pendingAbsent.splice(wIdx, 1);
+    $('modal-whole-absent-btn').textContent = '☠️ Whole Day Absent';
+    // Uncheck all
+    $('modal-lectures').querySelectorAll('input').forEach(i => { i.checked = false; i.closest('label').classList.remove('checked'); });
+  } else {
+    // Mark whole day absent & check all
+    pendingAbsent.push(dStr);
+    delete pendingLectures[dStr];
+    $('modal-whole-absent-btn').textContent = '✅ Undo Whole Day Absent';
+    $('modal-lectures').querySelectorAll('input').forEach(i => { i.checked = true; i.closest('label').classList.add('checked'); });
+  }
 }
 
 // ─── CONFIRM BAR ───
 function updateConfirmBar() {
   const bar = $('confirm-bar');
-  const savedSet = new Set(data.absentDates);
+  const savedAbsSet = new Set(data.absentDates);
   const pendingSet = new Set(pendingAbsent);
+
+  const savedLectures = data.absentLectures || {};
+  const lecChanged = Object.keys(pendingLectures).some(d => {
+    const saved = new Set(savedLectures[d] || []);
+    const pend = pendingLectures[d];
+    if (saved.size !== pend.size) return true;
+    for (const s of pend) if (!saved.has(s)) return true;
+    return false;
+  }) || Object.keys(savedLectures).some(d => !pendingLectures[d]);
 
   const hasChanges =
     pendingAbsent.length !== data.absentDates.length ||
-    pendingAbsent.some(d => !savedSet.has(d)) ||
-    data.absentDates.some(d => !pendingSet.has(d));
+    pendingAbsent.some(d => !savedAbsSet.has(d)) ||
+    data.absentDates.some(d => !pendingSet.has(d)) ||
+    lecChanged;
 
   if (!hasChanges) { bar.classList.add('hidden'); return; }
 
   bar.classList.remove('hidden');
-  const count = pendingAbsent.length;
-  $('confirm-info').textContent = `${count} day${count !== 1 ? 's' : ''} marked absent (unconfirmed)`;
+  const wholeDays = pendingAbsent.length;
+  const partialDays = Object.keys(pendingLectures).length;
+  let info = '';
+  if (wholeDays) info += `${wholeDays} whole-day bunk${wholeDays !== 1 ? 's' : ''}`;
+  if (partialDays) info += (info ? ', ' : '') + `${partialDays} partial-day bunk${partialDays !== 1 ? 's' : ''}`;
+  $('confirm-info').textContent = `${info || 'Changes'} (unconfirmed)`;
 }
 
 function confirmPlan() {
   data.absentDates = [...pendingAbsent];
+  // Serialize pendingLectures Sets to arrays for JSON
+  data.absentLectures = {};
+  for (const [d, subs] of Object.entries(pendingLectures)) {
+    data.absentLectures[d] = [...subs];
+  }
   save(data);
   renderAll();
   toast('⚡ Plan confirmed! Absences saved.');
@@ -874,6 +896,10 @@ function confirmPlan() {
 
 function resetPlan() {
   pendingAbsent = [...data.absentDates];
+  pendingLectures = {};
+  for (const [d, subs] of Object.entries(data.absentLectures || {})) {
+    pendingLectures[d] = new Set(subs);
+  }
   renderAll();
 }
 
@@ -896,7 +922,7 @@ function updateHolidayToggle() {
 
 // ─── PROJECTED ATTENDANCE WITH (ATTENDED/TOTAL) ───
 function renderProjections() {
-  const proj = project(pendingAbsent);
+  const proj = project(pendingAbsent, null, pendingLectures);
   const el = $('proj-bars');
   el.innerHTML = '';
 
@@ -962,15 +988,21 @@ function showTooltip(e, dateObj) {
   if (holidays.has(dStr)) return;
 
   const isAbsent = pendingAbsent.includes(dStr);
-  const currentProj = project(pendingAbsent);
+  const isPartial = !isAbsent && pendingLectures[dStr] && pendingLectures[dStr].size > 0;
+  const currentProj = project(pendingAbsent, null, pendingLectures);
 
   let altProj, title;
   if (isAbsent) {
     const without = pendingAbsent.filter(x => x !== dStr);
-    altProj = project(without);
+    altProj = project(without, null, pendingLectures);
     title = `Undo skip for ${fmtFull(dStr)}?`;
+  } else if (isPartial) {
+    const withoutLec = { ...pendingLectures };
+    delete withoutLec[dStr];
+    altProj = project(pendingAbsent, null, withoutLec);
+    title = `Partial skip: ${[...pendingLectures[dStr]].join(', ')} — ${fmtFull(dStr)}`;
   } else {
-    altProj = project([...pendingAbsent, dStr]);
+    altProj = project([...pendingAbsent, dStr], null, pendingLectures);
     title = `Skip ${fmtFull(dStr)}?`;
   }
 
@@ -981,13 +1013,13 @@ function showTooltip(e, dateObj) {
     const classes = classesOn(data.timetable, DAYS[dIdx - 1], subj);
     if (classes === 0) continue;
 
-    const cur = currentProj[subj].percent;
-    const next = altProj[subj].percent;
+    const cur = currentProj[subj]?.percent ?? 100;
+    const next = altProj[subj]?.percent ?? 100;
     const status = next < 75 ? 'danger' : next < 76 ? 'risky' : 'safe';
-    const arrow = isAbsent ? '↑' : '↓';
+    const arrow = (isAbsent || isPartial) ? '↑' : '↓';
     html += `<div class="tooltip-row">
       <span class="tooltip-subj">${subj}</span>
-      <span class="tooltip-val ${status}">${cur.toFixed(1)}% (${currentProj[subj].attended}/${currentProj[subj].total}) ${arrow} ${next.toFixed(1)}% (${altProj[subj].attended}/${altProj[subj].total})</span>
+      <span class="tooltip-val ${status}">${cur.toFixed(1)}% (${currentProj[subj]?.attended}/${currentProj[subj]?.total}) ${arrow} ${next.toFixed(1)}% (${altProj[subj]?.attended}/${altProj[subj]?.total})</span>
     </div>`;
   }
 
@@ -1011,26 +1043,28 @@ function checkAutoPresent() {
   if (!data || !data.lastVisitDate) return;
 
   const now = new Date();
-  const cutoff = new Date(now); // latest day we can mark
+  const cutoff = new Date(now);
   if (now.getHours() < 17) {
-    cutoff.setDate(cutoff.getDate() - 1); // before 5 PM → yesterday is last done day
+    cutoff.setDate(cutoff.getDate() - 1);
   }
   cutoff.setHours(0, 0, 0, 0);
 
   const last = pd(data.lastVisitDate);
-  if (last >= cutoff) return; // nothing new to mark
+  if (last >= cutoff) return;
 
   let count = 0;
   const holidays = new Set(data.holidays || []);
+  const absentLecs = data.absentLectures || {};
   const c = new Date(last);
-  c.setDate(c.getDate() + 1); // start day after last visit
+  c.setDate(c.getDate() + 1);
 
   while (c <= cutoff) {
     if (isWeekday(c)) {
       const s = ds(c);
       if (!holidays.has(s)) {
         const day = dayName(c);
-        const isAbsent = data.absentDates.includes(s);
+        const isWholeDayAbsent = data.absentDates.includes(s);
+        const partialAbsent = absentLecs[s] ? new Set(absentLecs[s]) : null;
         let dayHadClasses = false;
 
         for (const subj of allSubjects(data.timetable)) {
@@ -1039,10 +1073,12 @@ function checkAutoPresent() {
             dayHadClasses = true;
             if (!data.attendance[subj]) data.attendance[subj] = { attended: 0, total: 0 };
             data.attendance[subj].total += n;
-            if (!isAbsent) data.attendance[subj].attended += n;
+            if (!isWholeDayAbsent && !(partialAbsent && partialAbsent.has(subj))) {
+              data.attendance[subj].attended += n;
+            }
           }
         }
-        if (dayHadClasses && !isAbsent) count++;
+        if (dayHadClasses && !isWholeDayAbsent) count++;
       }
     }
     c.setDate(c.getDate() + 1);
@@ -1081,6 +1117,12 @@ $('confirm-btn').addEventListener('click', confirmPlan);
 $('reset-btn').addEventListener('click', resetPlan);
 $('timetable-json-input')?.addEventListener('input', validate);
 $('attendance-json-input')?.addEventListener('input', validate);
+// Modal events
+$('modal-close').addEventListener('click', closeAbsenceModal);
+$('modal-apply-btn').addEventListener('click', applyModalSelections);
+$('modal-holiday-btn').addEventListener('click', modalToggleHoliday);
+$('modal-whole-absent-btn').addEventListener('click', modalToggleWholeAbsent);
+$('absence-modal').addEventListener('click', e => { if (e.target === $('absence-modal')) closeAbsenceModal(); });
 
 // ─── INIT ───
 data = load();
